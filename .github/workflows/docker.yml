@@ -1,0 +1,59 @@
+name: Docker image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Client version to package, without the v (e.g. 0.1.8)
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: v
+        env:
+          INPUT: ${{ inputs.version || github.event.release.tag_name }}
+        run: echo "version=${INPUT#v}" >> "$GITHUB_OUTPUT"
+
+      # The release event can fire before every asset is downloadable.
+      - name: Wait for release assets
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          base="https://github.com/IdlePay/releases/releases/download/v$VERSION"
+          for arch in amd64 arm64 arm; do
+            for i in $(seq 1 30); do
+              curl -fsIL -o /dev/null "$base/idlepay_linux_$arch.sha256" && break
+              [ "$i" = 30 ] && { echo "missing idlepay_linux_$arch for v$VERSION"; exit 1; }
+              sleep 10
+            done
+          done
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          build-args: VERSION=${{ steps.v.outputs.version }}
+          push: true
+          tags: |
+            ghcr.io/idlepay/idlepay:${{ steps.v.outputs.version }}
+            ghcr.io/idlepay/idlepay:latest
