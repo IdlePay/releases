@@ -16,7 +16,7 @@ docker run -d --name idlepay --restart unless-stopped --hostname my-server \
 
 ### Proxies
 
-Mount a `proxies.txt` (one proxy per line, any common format) and choose whether this machine's own connection is shared too:
+Mount a `proxies.txt` (one proxy per line as `host:port:user:pass`, `user:pass@host:port` or `host:port`, without a type; HTTP, SOCKS5 and SOCKS5 UDP are detected) and choose whether this machine's own connection is shared too:
 
 ```bash
 docker run -d --name idlepay --restart unless-stopped --hostname my-server \
